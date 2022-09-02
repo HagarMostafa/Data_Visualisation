@@ -1,0 +1,400 @@
+---
+title: "Assign"
+output: html_document
+date: '2022-04-17'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(fig.width=10, fig.height=10) 
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+### Libraries used in the code
+
+``` {r}
+#install.packages("ggmap")
+library(ggmap)
+```
+```{r}
+#install.packages("shiny")
+library(shiny)
+```
+
+```{r}
+#install.packages("lubridate")
+library(lubridate)
+```
+```{r}
+#install.packages("gridExtra")
+library(gridExtra)
+```
+
+
+```{r}
+#install.packages("leaflet")
+library(leaflet)
+```
+
+```{r}
+library(scales)
+```
+
+
+```{r}
+#install.packages("leaflet.extras")
+library(leaflet.extras)
+```
+
+
+```{r}
+#install.packages("tidyverse")
+library(tidyverse)
+```
+
+
+```{r}
+library(gridExtra)
+```
+
+
+```{r}
+library(dplyr)
+```
+
+
+```{r}
+library(RColorBrewer)
+```
+
+
+```{r}
+library(dplyr)
+```
+
+
+```{r}
+library(ggridges)
+```
+
+
+```{r}
+library(grid)
+```
+
+
+```{r}
+library(tidyr)
+```
+
+
+```{r}
+#install.packages("ggridges")
+library(ggridges)
+```
+
+
+```{r}
+library(ggplot2)
+```
+
+```{r}
+#install.packages("viridis")
+library(viridis)
+```
+
+```{r}
+#install.packages("magrittr")
+library(magrittr)
+```
+
+### Loading data
+
+```{r}
+df <- read.csv("37-00049_UOF-P_2016_prepped.csv")
+head(df)
+```
+
+### Time and Date processing
+
+```{r}
+df$INCIDENT_DATE <- as.Date(df$INCIDENT_DATE, format = "%m/%d/%Y")
+df$INCIDENT_DATE <- gsub("00","20",df$INCIDENT_DATE)
+df$INCIDENT_DATE <- as.Date(df$INCIDENT_DATE, format = "%Y-%m-%d")
+df$INCIDENT_TIME <- format(strptime(df$INCIDENT_TIME, "%I:%M:%S %p"), "%H:%M:%S")
+df$INCIDENT_MONTH <- months(as.Date(df$INCIDENT_DATE))
+df$INC_MONTH <-format(df$INCIDENT_DATE,"%m")
+df$INCIDENT_HOUR <- as.numeric(substr(df$INCIDENT_TIME, 0, 2))
+df$INCIDENT_DAY <- wday(df$INCIDENT_DATE, label=TRUE)
+df$INC_HOUR <- substr(df$INCIDENT_TIME, 0, 2)
+df$INC_DATE <- substr(df$INCIDENT_DATE, 9, 10)
+```
+
+```{r}
+head(df)
+```
+
+```{r}
+df_year <-  df %>%
+  #filter(LOCATION_CITY == "Dallas", LOCATION_STATE == "TX") %>%
+  group_by(INCIDENT_DATE,INCIDENT_MONTH,INCIDENT_DAY) %>%
+  summarize(count = n())
+
+df_month <-  df %>%
+  #filter(LOCATION_CITY == "Dallas", LOCATION_STATE == "TX") %>%
+  group_by(INC_MONTH) %>%
+  summarize(count = n())
+
+df_day <-  df %>%
+  #filter(LOCATION_CITY == "Dallas", LOCATION_STATE == "TX") %>%
+  group_by(INCIDENT_DAY,INCIDENT_HOUR) %>%
+  summarize(count = n())
+
+df$INC_HOUR <- substr(df$INCIDENT_TIME, 0, 2)
+
+df   %>% 
+  #filter(LOCATION_CITY == "Dallas", LOCATION_STATE == "TX") %>%
+  group_by(INC_HOUR) %>%
+  summarize(avg =n()) -> df_hour_n
+```
+```{r}
+df_year
+```
+
+```{r}
+i1 <- ggplot(data = df_year, aes(INCIDENT_DATE, count)) +   geom_line(size=0.5, col="gray") +
+  geom_smooth(method = "loess", color = "green", span = 1/5) + theme_bw() + labs(x="Months ", y= "Incident Counts", title="1.a Year vs Incidents")
+
+
+m1 <- ggplot(df_month, aes(x=INC_MONTH, y =count, group=1)) + geom_line()  + geom_line( size = 1,colour ="blue") + labs(x="Months of 2016", y= "Incident Counts", title="Months vs Incident Rates")  + theme_bw()
+
+h1 <- ggplot(df_hour_n, aes(x = INC_HOUR, y = avg, group = "count")) + geom_line( size = 1, colour = "red") + labs(x="Hours in day", y= "Incident Counts", title="Hours vs Incident Rates")+ theme_bw() +
+theme(axis.text.x=element_text(angle=-90, vjust=0.5)) + labs(x = "Hour of the day", y = "count") + theme_bw()
+
+y1 <- ggplot(df_year, aes(count)) +
+  geom_density(alpha = 0.5, colour = "black", fill ="blue")+ labs(x="Incident counts", y= "Density", title="1.d Distribuion of incident rates") + theme_bw()
+
+i1
+m1
+h1
+y1
+```
+
+
+### Crimes Distribution in Days and Months:
+
+```{r}
+multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
+  
+plots <- c(list(...), plotlist)
+  
+numPlots = length(plots)
+if (is.null(layout)) {
+    layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
+                     ncol = cols, nrow = ceiling(numPlots/cols))
+}
+  
+if (numPlots==1) {
+    print(plots[[1]])
+    
+} 
+else {
+    grid.newpage()
+    pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
+    
+    for (i in 1:numPlots) {
+      matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
+      
+      print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
+                                      layout.pos.col = matchidx$col))
+    }
+  }
+}
+
+
+r1 <- ggplot(df_year, aes(count, INCIDENT_MONTH, fill = INCIDENT_MONTH)) +
+  geom_density_ridges(bandwidth = 0.1,size = 1) + scale_x_log10() + theme(legend.position = "none") +
+  labs(x = "Number of Incidents", y = "Months")
+
+r2 <- ggplot(df_year, aes(count, INCIDENT_DAY, fill = INCIDENT_DAY)) +
+  geom_density_ridges(bandwidth = 0.1,size = 1) + scale_x_log10() + theme(legend.position = "none") +
+  labs(x = "Number of Incidents", y = "Days")
+
+layout <- matrix(c(1,1,2,2,2),1,5,byrow=TRUE)
+
+multiplot(r1, r2, layout=layout)
+```
+
+```{r}
+df   %>% 
+  filter(SUBJECT_RACE == "Gray"  | SUBJECT_RACE == "White" | SUBJECT_RACE == "Hispanic" ) %>%
+  group_by(INCIDENT_DATE,INC_MONTH,SUBJECT_RACE) %>%
+  summarize(avg =n()) -> df_dateh
+
+
+g <- ggplot(df_dateh , aes(x = (INC_MONTH), y= avg, fill = INC_MONTH)) + geom_boxplot() +
+      labs(x='days',y = 'Incident Rate',title = paste("Central Tendency of", ' Incident rate across SUBJECT RACE '))+
+      theme(legend.position="none") + facet_wrap(~SUBJECT_RACE)  + coord_cartesian(ylim = c(1, 12))
+
+g
+```
+
+
+```{r}
+df_srace <-  df %>%
+  #filter(LOCATION_CITY == "Dallas", LOCATION_STATE == "TX") %>%
+  group_by(INC_MONTH,INCIDENT_MONTH,SUBJECT_RACE) %>%
+  summarize(count = n())
+
+df_orace <-  df %>%
+  #filter(LOCATION_CITY == "Dallas", LOCATION_STATE == "TX") %>%
+  group_by(INC_MONTH,INCIDENT_MONTH,OFFICER_RACE) %>%
+  summarize(count = n())
+
+r1 <- ggplot() +
+geom_line(data=subset(df_srace, SUBJECT_RACE=="Black" ) ,aes(y=count,x= INC_MONTH,colour="green",group=1),size=1 ) +
+geom_line(data=subset(df_srace, SUBJECT_RACE=="Hispanic" ) ,aes(y=count,x= INC_MONTH,colour="blue",group=1),size=1 ) +
+  geom_line(data=subset(df_srace, SUBJECT_RACE=="White" ) ,aes(y=count,x= INC_MONTH,colour="red",group=1),size=1 ) +
+  scale_color_discrete(name = "Y series", labels = c("BLACKS", "WHITES","HISPANICS")) + labs(x="Months of 2016", y= "Counts", title=" Subject Race vs Incidents")  +
+  scale_color_discrete(name = "Legend", labels = c("BLACKS", "WHITES","HISPANICS"))  + theme(axis.text.x=element_text( vjust=0.5),legend.position="bottom") +guides(colour=guide_legend(nrow=2))
+
+r2 <- ggplot() +
+  geom_line(data=subset(df_orace, OFFICER_RACE=="Black" ) ,aes(y=count,x= INC_MONTH,colour="green",group=1),size=1)+
+  geom_line(data=subset(df_orace, OFFICER_RACE=="Hispanic" ) ,aes(y=count,x= INC_MONTH,colour="red",group=1),size=1)+
+  geom_line(data=subset(df_orace, OFFICER_RACE=="White" ) ,aes(y=count,x= INC_MONTH,colour="orange",group=1),size=1)+
+  scale_color_discrete(name = "Y series", labels = c("BLACKS", "WHITES","HISPANICS")) + labs(x="Months of 2016" , title=" Officer Race vs Incident Handled Rates")  +
+  scale_color_discrete(name = "Legend", labels = c("BLACKS", "WHITES","HISPANICS"))  + theme(axis.text.x=element_text( vjust=0.5),legend.position="bottom")+guides(colour=guide_legend(nrow=2))
+
+
+layout <- matrix(c(1,1,1,1,2,2,2,2),3,8,byrow=TRUE)
+
+multiplot(r1, r2, layout=layout)
+```
+
+### Dallas Incidents Distribution in Time Series:
+
+```{r}
+df_div <-  df %>%
+  filter(LOCATION_CITY == "Dallas", LOCATION_STATE == "TX") %>%
+  group_by(INC_MONTH,DIVISION) %>%
+  summarize(count = n())
+
+ggplot(df_div, aes(x = INC_MONTH, y = count, group = 'count'))  + geom_line( aes(color= DIVISION), size = 1.2) +
+  facet_wrap(~ DIVISION,ncol=4) +
+  theme(legend.position="none") + 
+  labs(x="Months ", y= "INCIDENT COUNTS", title=" Division vs Incidents")
+```
+
+
+### Time Series for Subjects
+
+```{r}
+df_subdes <-  df %>%
+  group_by(INCIDENT_DATE,INCIDENT_MONTH,INCIDENT_DAY,SUBJECT_DESCRIPTION) %>%
+  summarize(count = n())
+
+ggplot(subset(df_subdes,SUBJECT_DESCRIPTION != "FD-Motor Vehicle" & SUBJECT_DESCRIPTION != "NULL" & SUBJECT_DESCRIPTION != "FD-Animal" & SUBJECT_DESCRIPTION != "Animal"), aes(x = INCIDENT_DATE, y = SUBJECT_DESCRIPTION, fill = ..x..)) + geom_density_ridges_gradient(size=0.7,scale = 1, rel_min_height = 0.01, gradient_lwd = 1., bandwidth = 6,alpha = 1.5) + scale_fill_viridis(name = "Tail probability", direction = -1) + ggtitle("Distribution of Subject Description") + labs(x = "Months of 2016", y = "", fill = "Humidity") + theme_ridges(font_size = 13, grid = TRUE) + theme(legend.position = "none") + theme(axis.title.y = element_blank())
+```
+
+
+```{r}
+df$date <- substr(df$INCIDENT_DATE, 7, 8)
+
+df_monthdate <-  df %>%
+  # filter(LOCATION_CITY == "Dallas", LOCATION_STATE == "TX") %>%
+  group_by(date, INC_MONTH) %>%
+  summarize(count = n())
+
+df_monthdate <- df_monthdate[complete.cases(df_monthdate), ]
+ggplot(df_monthdate, aes(x= date, y=INC_MONTH,fill = count)) + geom_tile( ) + 
+geom_text(aes(date, INC_MONTH, label = count), color = "black", size = 3) + scale_y_discrete("Months",labels=c("January","February", "March", "April","May", "June","July","August", "September","October","November","December")) + labs(x="Days of Month", y= "Months", title=" Incident Rates across Dates and Months")+ scale_fill_gradientn(colours = c("white", "green"))
+```
+
+
+```{r}
+df_monthday <-  df %>%
+  filter(LOCATION_CITY == "Dallas", LOCATION_STATE == "TX") %>%
+  group_by(INCIDENT_DAY, INC_MONTH) %>%
+  summarize(count = n())
+
+df_monthday <- df_monthday[complete.cases(df_monthday), ]
+
+ggplot(df_monthday, aes(x= INCIDENT_DAY, y=INC_MONTH,fill = count)) + geom_tile( ) + 
+geom_text(aes(INCIDENT_DAY, INC_MONTH, label = count), color = "black", size = 4) + scale_y_discrete("Months",labels=c("January","February", "March", "April","May", "June","July","August", "September","October","November","December")) + labs(x="Days of Month", y= "Months", title=" Incident Rates across Dates and Months")+ scale_fill_gradientn(colours = c("#37bfb8", "#FFFFFE", "#df8630"))
+```
+
+
+```{r}
+df_subrace <-  df %>%
+  filter(LOCATION_CITY == "Dallas", LOCATION_STATE == "TX") %>%
+  group_by(SUBJECT_RACE, INC_MONTH) %>%
+  summarize(count = n())
+
+df_offrace <-  df %>%
+  filter(LOCATION_CITY == "Dallas", LOCATION_STATE == "TX") %>%
+  group_by(OFFICER_RACE, INC_MONTH) %>%
+  summarize(count = n())
+
+df_subrace <- df_subrace[complete.cases(df_subrace), ]
+df_offrace <- df_offrace[complete.cases(df_offrace), ]
+
+r1 <- ggplot(df_offrace, aes(x= INC_MONTH, y=OFFICER_RACE,fill = count)) + geom_tile( ) + 
+geom_text(aes(INC_MONTH, OFFICER_RACE, label = count), color = "black", size = 4) +
+  scale_fill_gradientn(colours = c("#37bfb8", "#FFFFFE", "#df8630"))
+
+r2 <- ggplot(df_subrace, aes(x= INC_MONTH, y=SUBJECT_RACE,fill = count)) + geom_tile( ) + 
+geom_text(aes(INC_MONTH, SUBJECT_RACE, label = count), color = "black", size = 4) +
+  scale_fill_gradientn(colours = c("#37bfb8", "#FFFFFE", "#df8630"))
+
+grid.arrange(r1,r2, nrow=2,ncol=1)
+```
+
+## Results Discussion:
+### According to the above analysis, we can conclude that:
+
+### 1. Incident rate along the year is negative, which means that incidents' number in Dallas in decreasing.
+
+### 2. The lowest number of reported incidents was between 4am and 10 am.
+
+### 3. During month "March", crimes committed by Hispanics and Blacks are more.
+
+### 4. There is a remarkably highere incident rate in Centrtal division, especially Central, South Central and Northeast in March.
+
+### 5. There is a great difference in officer race (White) and subject race (Black).
+
+### 6. Crime and incident rates are normally distributed among the months (January, March, April, June, July, August).
+
+### 7. Drugs, alcohol and mentally unstable subject discription is stable along the year.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
